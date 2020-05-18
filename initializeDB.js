@@ -11,12 +11,7 @@ const db = new sqlite3.Database(
 
 dbrun();
 
-
 function dbrun() {
-    db.run(`DROP TABLE user`, (error) => {
-        if (error) console.log(error.message);
-        else console.log('tabella eliminata');
-    });
     db.run(
         `CREATE TABLE IF NOT EXISTS user(
     pid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,4 +23,17 @@ function dbrun() {
             else console.log('tabella creata');
         }
     );
+    db.run(
+        `CREATE TABLE IF NOT EXISTS image(
+    pid INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    author TEXT,
+    path TEXT UNIQUE,
+    FOREIGN KEY (author) REFERENCES user(nickname))`,
+        (error) => {
+            if (error) console.log(error.message);
+            else console.log('tabella creata');
+        }
+    );
+    
 }
