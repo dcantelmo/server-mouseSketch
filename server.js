@@ -1,8 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const bodyParser = require('body-parser');
-const multer = require('multer');           //Gestione multiform
-const cors = require('cors');
+const bodyParser = require('body-parser'); 
+const multer = require('multer');   //Gestione multiform
+const cors = require('cors');       //Bypass di sicurezza
 const sqlite3 = require('sqlite3');
 const fs = require('fs');
 
@@ -16,6 +16,7 @@ app.use(
         { name: 'file', maxCount: 1 },
     ])
 );
+
 app.use('/images', express.static(__dirname + '/images'));
 
 const db = new sqlite3.Database(
@@ -30,11 +31,14 @@ const db = new sqlite3.Database(
 app.post('/register', function (req, res) {
     if (req.body) {
         console.log('richiesta in corso...');
+
+        //TODO registrazione nomi con maiuscole, niente spazi o caratteri speciali
         const user = {
             nickname: req.body.name.toLowerCase(),
             email: req.body.email.toLowerCase(),
             password: req.body.password,
         };
+
         const token = jwt.sign({ user }, 'the_secret_key');
 
         dbInstertUser(user.nickname, user.email, user.password);
@@ -43,7 +47,7 @@ app.post('/register', function (req, res) {
             email: user.email,
             nickname: user.nickname,
         });
-    } else console.log('nope');
+    } else res.status(400); //TODO errore
 });
 
 app.post('/login', function (req, res) {
@@ -63,30 +67,26 @@ app.post('/login', function (req, res) {
                             email: row.email,
                             nickname: row.nickname,
                         });
-                    } else console.log('mail e/o password errati');
+                    } else
+                        res.status(401).json({
+                            err: 'Email o Password errati!',
+                        });
                 }
             }
         );
-    } else res.status(400);
+    } else res.status(400).json({ err: 'Bad Request' });
 });
 
 app.post('/draw', verifyToken, function (req, res) {
-    console.log(req)
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
-            console.log('ciao')
+            console.log("UHAA")
             res.status(401).json({ err });
         } else {
             let title = req.body.title;
-            if (!title)
-                title = 'unnamed';
-            insertImage(
-                title,
-                decoded.user.nickname,
-                req.files.file[0]
-            );
+            if (!title) title = 'unnamed';
+            insertImage(title, decoded.user.nickname, req.files.file[0]);
             res.json('Salvato correttamente');
-            dbShow();
         }
     });
 });
@@ -100,7 +100,6 @@ app.get('/profile/:user/gallery', function (req, res) {
                 if (err) {
                     console.log('errore nella query: ' + err);
                 } else {
-                    console.log(rows)
                     res.json(rows);
                 }
             }
@@ -111,24 +110,26 @@ app.get('/profile/:user/gallery', function (req, res) {
 app.get('/profile/:user', function (req, res) {
     if (req.body) {
         db.get(
-            `SELECT nickname FROM user WHERE nickname = ?`,
+            `SELECT nickname, COUNT(*) as drawings FROM user, image WHERE author = nickname AND nickname = ?`,
             [req.params.user],
             (err, row) => {
                 if (err) {
-                    throw err;
+                    console.log(err);
                 } else {
                     if (row) {
+                        console.log(row)
                         res.json({
                             nickname: row.nickname,
+                            drawings: row.drawings
                         });
                     } else {
                         console.log('not found');
-                        res.status(404);
+                        res.status(404).json({ err: 'Utente non trovato!' });
                     }
                 }
             }
         );
-    }
+    } else res.status(400).json({ err: 'Bad request' });
 });
 
 app.listen(3000, function () {
@@ -136,32 +137,23 @@ app.listen(3000, function () {
 });
 
 function dbInstertUser(nick, mail, hash) {
-    db.run(
+    return db.run(
         `INSERT INTO user(nickname,email,hash) VALUES (?,?,?)`,
         [nick, mail, hash],
         function (err) {
-            if (err) return console.log(err.message);
-
+            if (err) {
+                console.log('errore inserimento nel database')
+            }
             console.log('inserted ' + this.lastID);
         }
     );
-    dbShow();
 }
 
-function dbShow() {
-    db.all(`SELECT * FROM image`, [], (err, rows) => {
-        if (err) {
-            throw err;
-        }
-        rows.forEach((row) => {
-            console.log(row);
-        });
-    });
-}
+//AUX function
 
 function insertImage(name, author, file) {
     let uri = `./images/${author}-${name}.png`;
-    fs.access(uri, (err) => {
+    return fs.access(uri, (err) => {
         if (err) {
             console.log('Creazione file e inserimento path nel db');
             fs.createWriteStream(uri).write(file.buffer, (err) => {
@@ -184,6 +176,7 @@ function insertImage(name, author, file) {
 function verifyToken(req, res, next) {
     const bearerHeader = req.headers['authorization'];
     if (typeof bearerHeader !== 'undefined') {
+        
         const bearer = bearerHeader.split(' ');
         const bearerToken = bearer[1];
         req.token = bearerToken;
@@ -200,7 +193,6 @@ function dbInsterImage(name, author, path) {
         (err) => {
             if (err) {
                 console.log('errore inserimento immagine');
-                throw err;
             } else console.log('immagine aggiunta al db');
         }
     );
