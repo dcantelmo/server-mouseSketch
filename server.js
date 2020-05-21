@@ -1,8 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const bodyParser = require('body-parser'); 
-const multer = require('multer');   //Gestione multiform
-const cors = require('cors');       //Bypass di sicurezza
+const bodyParser = require('body-parser');
+const multer = require('multer'); //Gestione multiform
+const cors = require('cors'); //Bypass di sicurezza
 const sqlite3 = require('sqlite3');
 const fs = require('fs');
 
@@ -41,19 +41,22 @@ app.post('/register', function (req, res) {
 
         const token = jwt.sign({ user }, 'the_secret_key');
 
-        dbInstertUser(user.nickname, user.email, user.password);
-        res.json({
-            token,
-            email: user.email,
-            nickname: user.nickname,
-        });
+        dbInstertUser(user.nickname, user.email, user.password)
+            .then(() =>
+                res.json({
+                    token,
+                    email: user.email,
+                    nickname: user.nickname,
+                })
+            )
+            .catch((err) => res.status(401).json(err));
     } else res.status(400); //TODO errore
 });
 
 app.post('/login', function (req, res) {
     if (req.body) {
         db.get(
-            `SELECT nickname, email, hash FROM user WHERE email = ? AND hash = ?`,
+            `SELECT nickname, email, password FROM user WHERE email = ? AND password = ?`,
             [req.body.email, req.body.password],
             (err, row) => {
                 if (err) {
@@ -80,7 +83,7 @@ app.post('/login', function (req, res) {
 app.post('/draw', verifyToken, function (req, res) {
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
-            console.log("UHAA")
+            console.log('UHAA');
             res.status(401).json({ err });
         } else {
             let title = req.body.title;
@@ -107,20 +110,83 @@ app.get('/profile/:user/gallery', function (req, res) {
     }
 });
 
+app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
+    jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
+        if (err) {
+            res.status(401).json({ err });
+        } else if (
+            req.params.user.toLowerCase != decoded.user.nickname.toLowerCase
+        ) {
+            res.status(401).json({ err });
+        } else {
+            console.log('## Istruzioni ricevute:\n', req.body, '\n##\n\n');
+            switch (req.body.mode) {
+                case 'RENAME':
+                    renameImage(
+                        req.body.oldTitle,
+                        req.body.newTitle,
+                        decoded.user.nickname
+                    )
+                        .then(() => {
+                            //#### DEBUG ####//
+                            console.log(
+                                '-- Immagine rinominata -- $',
+                                decoded.user.nickname,
+                                '\nNome precedente: ',
+                                req.body.oldTitle,
+                                '\nNome nuovo: ',
+                                req.body.newTitle,
+                                '\n--------------'
+                            );
+                            //#############//
+                            res.json('Immagine rinominata');
+                        })
+                        .catch((err) => {
+                            console.log(err);
+                            res.status(400).json(
+                                'Errore nella rinominazione: '
+                            );
+                        });
+                    break;
+                case 'DELETE':
+                    deleteImage(req.body.title, req.body.author)
+                        .then(() => {
+                            console.log('Immagine eliminata');
+                            res.json('Immagine eliminata');
+                        })
+                        .catch(() => {
+                            console.log(err);
+                            res.status(400).json('Errore nella rimozione: ');
+                        });
+                    break;
+                case 'SET_AVATAR':
+                    setAvatar(decoded.user.nickname, req.body.title, req.body.author).then(() => {
+                        console.log('Avatar Impostato');
+                        res.json('Avatar impostato')
+                    })
+                    break;
+                default:
+                    res.status(400).json('Richiesta non riconosciuta');
+            }
+        }
+    });
+});
+
 app.get('/profile/:user', function (req, res) {
     if (req.body) {
         db.get(
-            `SELECT nickname, COUNT(*) as drawings FROM user, image WHERE author = nickname AND nickname = ?`,
+            `SELECT nickname, av_path, COUNT(*) as drawings FROM user, image WHERE author = nickname AND nickname = ?`,
             [req.params.user],
             (err, row) => {
                 if (err) {
                     console.log(err);
                 } else {
                     if (row) {
-                        console.log(row)
+                        console.log(row);
                         res.json({
+                            avatar: row.av_path,
                             nickname: row.nickname,
-                            drawings: row.drawings
+                            drawings: row.drawings,
                         });
                     } else {
                         console.log('not found');
@@ -136,16 +202,17 @@ app.listen(3000, function () {
     console.log('Example app listening on port 3000!');
 });
 
-function dbInstertUser(nick, mail, hash) {
-    return db.run(
-        `INSERT INTO user(nickname,email,hash) VALUES (?,?,?)`,
-        [nick, mail, hash],
-        function (err) {
-            if (err) {
-                console.log('errore inserimento nel database')
+function dbInstertUser(nick, mail, password) {
+    return new Promise((resolve, reject) =>
+        db.run(
+            `INSERT INTO user(nickname,email,password) VALUES (?,?,?)`,
+            [nick, mail, password],
+            function (err) {
+                if (err) {
+                    reject(err);
+                } else resolve();
             }
-            console.log('inserted ' + this.lastID);
-        }
+        )
     );
 }
 
@@ -176,7 +243,6 @@ function insertImage(name, author, file) {
 function verifyToken(req, res, next) {
     const bearerHeader = req.headers['authorization'];
     if (typeof bearerHeader !== 'undefined') {
-        
         const bearer = bearerHeader.split(' ');
         const bearerToken = bearer[1];
         req.token = bearerToken;
@@ -196,4 +262,69 @@ function dbInsterImage(name, author, path) {
             } else console.log('immagine aggiunta al db');
         }
     );
+}
+
+function renameImage(oldTitle, newTitle, author) {
+    return new Promise((resolve, reject) => {
+        let newUrl = `./images/${author}-${newTitle}.png`;
+        let oldUrl = `./images/${author}-${oldTitle}.png`;
+        db.run(
+            `UPDATE image SET name = ?, path = ? WHERE author = ? AND name = ?`,
+            [newTitle, newUrl, author, oldTitle],
+            (err) => {
+                if (err) {
+                    console.log(err);
+                    reject('Errore nella query: renameImage');
+                } else {
+                    fs.rename(oldUrl, newUrl, (err) => {
+                        if (err) reject(err);
+                        else resolve('immagine rinominata');
+                    });
+                }
+            }
+        );
+    });
+}
+function deleteImage(name, author) {
+    return new Promise((resolve, reject) => {
+        let url = `./images/${author}-${name}.png`;
+        db.run(
+            `DELETE FROM image WHERE name = ? AND author = ?`,
+            [name, author],
+            (err) => {
+                if (err) {
+                    console.log('Problema nella query: deleteImage');
+                    reject(err);
+                } else {
+                    fs.unlink(url, (err) => {
+                        if (err) reject(err);
+                        else {
+                            resolve();
+                        }
+                    });
+                }
+            }
+        ); 
+    });
+}
+
+function setAvatar(nickname, title, author) {
+    return new Promise((resolve, reject) => {
+        let url = `./images/${author}-${title}.png`;
+        fs.access(url, (err) => {
+            if (err) {
+                reject(err);
+            } else {
+                db.run(
+                    `UPDATE user SET av_path = ? WHERE nickname = ?`,
+                    [url, nickname],
+                    (err) => {
+                        if (err) {
+                            reject(err);
+                        } else resolve();
+                    }
+                );
+            }
+        });
+    });
 }

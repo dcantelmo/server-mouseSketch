@@ -22,7 +22,8 @@ function dbrun() {
                 pid INTEGER PRIMARY KEY AUTOINCREMENT,
                 nickname TEXT UNIQUE,
                 email TEXT UNIQUE,
-                hash text)`,
+                password text,
+                av_path)`,
                 (error) => {
                     if (error) console.log(error.message);
                     else console.log('tabella user creata');
@@ -40,6 +41,7 @@ function dbrun() {
                 name TEXT,
                 author TEXT,
                 path TEXT UNIQUE,
+                CONSTRAINT AU_Image UNIQUE (author,name)
                 FOREIGN KEY (author) REFERENCES user(nickname))`,
                 (error) => {
                     if (error) console.log(error.message);
