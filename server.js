@@ -24,13 +24,14 @@ const db = new sqlite3.Database(
     sqlite3.OPEN_READWRITE,
     (err) => {
         if (err) console.log(err.message);
-        else db.exec('PRAGMA foreign_keys = ON;', function (error) {
-            if (error) {
-                console.error("Pragma statement didn't work.")
-            } else {
-                console.log("Foreign Key Enforcement is on.")
-            }
-        });
+        else
+            db.exec('PRAGMA foreign_keys = ON;', function (error) {
+                if (error) {
+                    console.error("Pragma statement didn't work.");
+                } else {
+                    console.log('Foreign Key Enforcement is on.');
+                }
+            });
     }
 );
 
@@ -89,13 +90,15 @@ app.post('/login', function (req, res) {
 app.post('/draw', verifyToken, function (req, res) {
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
-            console.log('UHAA');
             res.status(401).json({ err });
         } else {
+            console.log('Richiesta save ricevuta');
             let title = req.body.title;
+            console.log(req.body.title);
             if (!title) title = 'unnamed';
-            insertImage(title, decoded.user.nickname, req.files.file[0]);
-            res.json('Salvato correttamente');
+            insertImage(title, decoded.user.nickname, req.files.file[0])
+                .then(() => res.json('Salvato correttamente'))
+                .catch((err) => res.status(400).json(err));
         }
     });
 });
@@ -232,22 +235,31 @@ function dbInstertUser(nick, mail, password) {
 
 function insertImage(name, author, file) {
     let uri = `./images/${author}-${name}.png`;
-    return fs.access(uri, fs.constants.W_OK,(err) => {
-        if (err) {
-            console.log(err.code);
-            console.log('Creazione file e inserimento path nel db');
-            fs.writeFile(uri, file.buffer, (err) => {
-                if (err) {
-                } else dbInsterImage(name, author, uri);
-            });
-        } else {
-            fs.writeFile(uri, file.buffer, (err) => {
-                if (err) {
-                    console.log('errore sovrascrittura immagine');
-                } else {
-                }
-            });
-        }
+    return new Promise((resolve, reject) => {
+        fs.access(uri, fs.constants.W_OK, (err) => {
+            if (err) {
+                console.log(err.code);
+                console.log('Creazione file e inserimento path nel db');
+                fs.writeFile(uri, file.buffer, (err) => {
+                    if (err) {
+                        console.log(err);
+                        reject();
+                    } else
+                        dbInsterImage(name, author, uri)
+                            .then(() => resolve())
+                            .catch((err) => reject(err));
+                });
+            } else {
+                fs.writeFile(uri, file.buffer, (err) => {
+                    if (err) {
+                        reject();
+                        console.log('errore sovrascrittura immagine');
+                    } else {
+                        resolve();
+                    }
+                });
+            }
+        });
     });
 }
 
@@ -265,14 +277,20 @@ function verifyToken(req, res, next) {
 }
 
 function dbInsterImage(name, author, path) {
-    db.run(
-        `INSERT INTO image(name,author,path) VALUES (?,?,?)`,
-        [name, author, path],
-        (err) => {
-            if (err) {
-                console.log('errore inserimento immagine');
-            } else console.log('immagine aggiunta al db');
-        }
+    return new Promise((resolve, reject) =>
+        db.run(
+            `INSERT INTO image(name,author,path) VALUES (?,?,?)`,
+            [name, author, path],
+            (err) => {
+                if (err) {
+                    console.log('errore inserimento immagine');
+                    reject(err);
+                } else {
+                    console.log('immagine aggiunta al db');
+                    resolve();
+                }
+            }
+        )
     );
 }
 
