@@ -23,7 +23,10 @@ function dbrun() {
                 nickname TEXT UNIQUE,
                 email TEXT UNIQUE,
                 password text,
-                av_path)`,
+                av_path,
+                FOREIGN KEY (av_path) REFERENCES image(path)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE)`,
                 (error) => {
                     if (error) console.log(error.message);
                     else console.log('tabella user creata');

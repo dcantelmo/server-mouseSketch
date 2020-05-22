@@ -24,7 +24,13 @@ const db = new sqlite3.Database(
     sqlite3.OPEN_READWRITE,
     (err) => {
         if (err) console.log(err.message);
-        else console.log('Connected to sketch db!');
+        else db.exec('PRAGMA foreign_keys = ON;', function (error) {
+            if (error) {
+                console.error("Pragma statement didn't work.")
+            } else {
+                console.log("Foreign Key Enforcement is on.")
+            }
+        });
     }
 );
 
@@ -226,16 +232,16 @@ function dbInstertUser(nick, mail, password) {
 
 function insertImage(name, author, file) {
     let uri = `./images/${author}-${name}.png`;
-    return fs.access(uri, (err) => {
+    return fs.access(uri, fs.constants.W_OK,(err) => {
         if (err) {
+            console.log(err.code);
             console.log('Creazione file e inserimento path nel db');
-            fs.createWriteStream(uri).write(file.buffer, (err) => {
+            fs.writeFile(uri, file.buffer, (err) => {
                 if (err) {
-                    console.log('errore creazione immagine');
                 } else dbInsterImage(name, author, uri);
             });
         } else {
-            fs.createWriteStream(uri).write(file.buffer, (err) => {
+            fs.writeFile(uri, file.buffer, (err) => {
                 if (err) {
                     console.log('errore sovrascrittura immagine');
                 } else {
