@@ -160,10 +160,14 @@ app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
                         });
                     break;
                 case 'SET_AVATAR':
-                    setAvatar(decoded.user.nickname, req.body.title, req.body.author).then(() => {
+                    setAvatar(
+                        decoded.user.nickname,
+                        req.body.title,
+                        req.body.author
+                    ).then(() => {
                         console.log('Avatar Impostato');
-                        res.json('Avatar impostato')
-                    })
+                        res.json('Avatar impostato');
+                    });
                     break;
                 default:
                     res.status(400).json('Richiesta non riconosciuta');
@@ -175,7 +179,7 @@ app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
 app.get('/profile/:user', function (req, res) {
     if (req.body) {
         db.get(
-            `SELECT nickname, av_path, COUNT(*) as drawings FROM user, image WHERE author = nickname AND nickname = ?`,
+            `SELECT nickname, av_path FROM user WHERE nickname = ?`,
             [req.params.user],
             (err, row) => {
                 if (err) {
@@ -183,10 +187,12 @@ app.get('/profile/:user', function (req, res) {
                 } else {
                     if (row) {
                         console.log(row);
+                        let avatar = row.av_path
+                            ? row.av_path
+                            : './images/default.png';
                         res.json({
-                            avatar: row.av_path,
+                            avatar: avatar,
                             nickname: row.nickname,
-                            drawings: row.drawings,
                         });
                     } else {
                         console.log('not found');
@@ -304,7 +310,7 @@ function deleteImage(name, author) {
                     });
                 }
             }
-        ); 
+        );
     });
 }
 
