@@ -36,9 +36,8 @@ const db = new sqlite3.Database(
 );
 
 app.post('/register', function (req, res) {
-    if (req.body) {
-        console.log('richiesta in corso...');
-
+    console.log("\nPOST: /register");
+    if (req.body && !(req.body.name == '' || req.body.email == '' || req.body.password == '')) {
         //TODO registrazione nomi con maiuscole, niente spazi o caratteri speciali
         const user = {
             nickname: req.body.name.toLowerCase(),
@@ -49,18 +48,21 @@ app.post('/register', function (req, res) {
         const token = jwt.sign({ user }, 'the_secret_key');
 
         dbInstertUser(user.nickname, user.email, user.password)
-            .then(() =>
+            .then(() => {
+                console.log('Utente registrato - {nickname: ' + user.nickname + 'email: ' + user.email + '}');
                 res.json({
                     token,
                     email: user.email,
                     nickname: user.nickname,
                 })
+            }
             )
             .catch((err) => res.status(401).json(err));
     } else res.status(400); //TODO errore
 });
 
 app.post('/login', function (req, res) {
+    console.log("\nPOST: /login");
     if (req.body) {
         db.get(
             `SELECT nickname, email, password FROM user WHERE email = ? AND password = ?`,
@@ -88,6 +90,7 @@ app.post('/login', function (req, res) {
 });
 
 app.post('/draw', verifyToken, function (req, res) {
+    console.log("\nPOST: /draw");
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
             res.status(401).json({ err });
@@ -104,6 +107,7 @@ app.post('/draw', verifyToken, function (req, res) {
 });
 
 app.get('/profile/:user/gallery', function (req, res) {
+    console.log("\nGET: /profile/:user/gallery");
     if (req.body) {
         db.all(
             `SELECT path, name FROM image WHERE author = ?`,
@@ -120,6 +124,7 @@ app.get('/profile/:user/gallery', function (req, res) {
 });
 
 app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
+    console.log("\nPOST: /profile/:user/gallery/option");
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
             res.status(401).json({ err });
@@ -186,6 +191,7 @@ app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
 });
 
 app.get('/profile/:user', function (req, res) {
+    console.log("\nGET: /profile/:user");
     if (req.body) {
         db.get(
             `SELECT nickname, av_path FROM user WHERE nickname = ?`,
@@ -214,7 +220,7 @@ app.get('/profile/:user', function (req, res) {
 });
 
 app.listen(3000, function () {
-    console.log('Example app listening on port 3000!');
+    console.log('Server API _ Mouse-Sketch avviato, porta 3000!');
 });
 
 function dbInstertUser(nick, mail, password) {

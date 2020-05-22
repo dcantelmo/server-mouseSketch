@@ -20,8 +20,8 @@ function dbrun() {
             db.run(
                 `CREATE TABLE IF NOT EXISTS user(
                 pid INTEGER PRIMARY KEY AUTOINCREMENT,
-                nickname TEXT UNIQUE,
-                email TEXT UNIQUE,
+                nickname TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
                 password text,
                 av_path,
                 FOREIGN KEY (av_path) REFERENCES image(path)
