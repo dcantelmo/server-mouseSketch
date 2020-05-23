@@ -36,8 +36,15 @@ const db = new sqlite3.Database(
 );
 
 app.post('/register', function (req, res) {
-    console.log("\nPOST: /register");
-    if (req.body && !(req.body.name == '' || req.body.email == '' || req.body.password == '')) {
+    console.log('\nPOST: /register');
+    if (
+        req.body &&
+        !(
+            req.body.name == '' ||
+            req.body.email == '' ||
+            req.body.password == ''
+        )
+    ) {
         //TODO registrazione nomi con maiuscole, niente spazi o caratteri speciali
         const user = {
             nickname: req.body.name.toLowerCase(),
@@ -49,20 +56,25 @@ app.post('/register', function (req, res) {
 
         dbInstertUser(user.nickname, user.email, user.password)
             .then(() => {
-                console.log('Utente registrato - {nickname: ' + user.nickname + 'email: ' + user.email + '}');
+                console.log(
+                    'Utente registrato - {nickname: ' +
+                        user.nickname +
+                        'email: ' +
+                        user.email +
+                        '}'
+                );
                 res.json({
                     token,
                     email: user.email,
                     nickname: user.nickname,
-                })
-            }
-            )
+                });
+            })
             .catch((err) => res.status(401).json(err));
     } else res.status(400); //TODO errore
 });
 
 app.post('/login', function (req, res) {
-    console.log("\nPOST: /login");
+    console.log('\nPOST: /login');
     if (req.body) {
         db.get(
             `SELECT nickname, email, password FROM user WHERE email = ? AND password = ?`,
@@ -90,7 +102,7 @@ app.post('/login', function (req, res) {
 });
 
 app.post('/draw', verifyToken, function (req, res) {
-    console.log("\nPOST: /draw");
+    console.log('\nPOST: /draw');
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
             res.status(401).json({ err });
@@ -107,16 +119,30 @@ app.post('/draw', verifyToken, function (req, res) {
 });
 
 app.get('/profile/:user/gallery', function (req, res) {
-    console.log("\nGET: /profile/:user/gallery");
+    console.log('\nGET: /profile/:user/gallery');
     if (req.body) {
-        db.all(
-            `SELECT path, name FROM image WHERE author = ?`,
+        db.get(
+            `SELECT nickname FROM user WHERE nickname = ?`,
             [req.params.user],
-            (err, rows) => {
+            (err, row) => {
                 if (err) {
-                    console.log('errore nella query: ' + err);
+                    console.log('Errore nella ricerca della galleria');
+                    res.status(400).json('Impossibile reperire la galleria');
+                } else if (!row) {
+                    console.log('Utente non presente');
+                    res.status(404).json('Utente non trovato');
                 } else {
-                    res.json(rows);
+                    db.all(
+                        `SELECT path, name FROM image WHERE author = ?`,
+                        [req.params.user],
+                        (err, rows) => {
+                            if (err) {
+                                console.log('errore nella query: ' + err);
+                            } else {
+                                res.json(rows);
+                            }
+                        }
+                    );
                 }
             }
         );
@@ -124,7 +150,7 @@ app.get('/profile/:user/gallery', function (req, res) {
 });
 
 app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
-    console.log("\nPOST: /profile/:user/gallery/option");
+    console.log('\nPOST: /profile/:user/gallery/option');
     jwt.verify(req.token, 'the_secret_key', (err, decoded) => {
         if (err) {
             res.status(401).json({ err });
@@ -191,7 +217,7 @@ app.post('/profile/:user/gallery/option', verifyToken, (req, res) => {
 });
 
 app.get('/profile/:user', function (req, res) {
-    console.log("\nGET: /profile/:user");
+    console.log('\nGET: /profile/:user');
     if (req.body) {
         db.get(
             `SELECT nickname, av_path FROM user WHERE nickname = ?`,
