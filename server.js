@@ -47,8 +47,8 @@ app.post('/register', function (req, res) {
     ) {
         //TODO registrazione nomi con maiuscole, niente spazi o caratteri speciali
         const user = {
-            nickname: req.body.name.toLowerCase(),
-            email: req.body.email.toLowerCase(),
+            nickname: req.body.name,
+            email: req.body.email,
             password: req.body.password,
         };
 
@@ -112,8 +112,15 @@ app.post('/draw', verifyToken, function (req, res) {
             console.log(req.body.title);
             if (!title) title = 'unnamed';
             insertImage(title, decoded.user.nickname, req.files.file[0])
-                .then(() => res.json('Salvato correttamente'))
-                .catch((err) => res.status(400).json(err));
+                .then((response) => {
+                    console.log(response);
+                    if (response === 'SAVED') res.json('Salvato correttamente');
+                    else res.json('Immagine sovrascritta correttamente');
+                })
+                .catch((err) => {
+                    console.log(err);
+                    res.status(400).json(err);
+                });
         }
     });
 });
@@ -275,10 +282,11 @@ function insertImage(name, author, file) {
                 fs.writeFile(uri, file.buffer, (err) => {
                     if (err) {
                         console.log(err);
+                        console.log('Errore creazione');
                         reject();
                     } else
                         dbInsterImage(name, author, uri)
-                            .then(() => resolve())
+                            .then(() => resolve('SAVED'))
                             .catch((err) => reject(err));
                 });
             } else {
@@ -287,7 +295,7 @@ function insertImage(name, author, file) {
                         reject();
                         console.log('errore sovrascrittura immagine');
                     } else {
-                        resolve();
+                        resolve('REWRITED');
                     }
                 });
             }
