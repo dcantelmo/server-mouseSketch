@@ -343,8 +343,10 @@ function dbInsertImage(name, author, path) {
 
 function renameImage(oldTitle, newTitle, author) {
     return new Promise((resolve, reject) => {
-        if (newTitle.length > 30)
+        if (newTitle.length > 30) {
             reject('Nome troppo lungo!');
+            return;
+        }
         let newUrl = `./images/${author}-${newTitle}.png`;
         let oldUrl = `./images/${author}-${oldTitle}.png`;
         db.run(
