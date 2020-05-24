@@ -54,7 +54,7 @@ app.post('/register', function (req, res) {
 
         const token = jwt.sign({ user }, 'the_secret_key');
 
-        dbInstertUser(user.nickname, user.email, user.password)
+        dbInsertUser(user.nickname, user.email, user.password)
             .then(() => {
                 console.log(
                     'Utente registrato - {nickname: ' +
@@ -69,7 +69,14 @@ app.post('/register', function (req, res) {
                     nickname: user.nickname,
                 });
             })
-            .catch((err) => res.status(401).json(err));
+            .catch((err) => {
+                let error = '';
+                if (err.toString().search('email') != -1)
+                    error = 'Email già registrata!';
+                else if (err.toString().search('nickname') != -1)
+                    errors = 'Nome già registrato!';
+                res.status(401).json(error);
+            });
     } else res.status(400); //TODO errore
 });
 
@@ -227,7 +234,7 @@ app.get('/profile/:user', function (req, res) {
     console.log('\nGET: /profile/:user');
     if (req.body) {
         db.get(
-            `SELECT nickname, av_path FROM user WHERE nickname = ?`,
+            `SELECT nickname, IFNULL(av_path, './images/default.png') as av_path FROM user WHERE nickname = ?`,
             [req.params.user],
             (err, row) => {
                 if (err) {
@@ -256,7 +263,7 @@ app.listen(3000, function () {
     console.log('Server API _ Mouse-Sketch avviato, porta 3000!');
 });
 
-function dbInstertUser(nick, mail, password) {
+function dbInsertUser(nick, mail, password) {
     return new Promise((resolve, reject) =>
         db.run(
             `INSERT INTO user(nickname,email,password) VALUES (?,?,?)`,
@@ -285,7 +292,7 @@ function insertImage(name, author, file) {
                         console.log('Errore creazione');
                         reject();
                     } else
-                        dbInsterImage(name, author, uri)
+                        dbInsertImage(name, author, uri)
                             .then(() => resolve('SAVED'))
                             .catch((err) => reject(err));
                 });
@@ -316,7 +323,7 @@ function verifyToken(req, res, next) {
     }
 }
 
-function dbInsterImage(name, author, path) {
+function dbInsertImage(name, author, path) {
     return new Promise((resolve, reject) =>
         db.run(
             `INSERT INTO image(name,author,path) VALUES (?,?,?)`,
@@ -336,6 +343,8 @@ function dbInsterImage(name, author, path) {
 
 function renameImage(oldTitle, newTitle, author) {
     return new Promise((resolve, reject) => {
+        if (newTitle.length > 30)
+            reject('Nome troppo lungo!');
         let newUrl = `./images/${author}-${newTitle}.png`;
         let oldUrl = `./images/${author}-${oldTitle}.png`;
         db.run(

@@ -20,8 +20,8 @@ function dbrun() {
             db.run(
                 `CREATE TABLE IF NOT EXISTS user(
                 pid INTEGER PRIMARY KEY AUTOINCREMENT,
-                nickname TEXT UNIQUE NOT NULL,
-                email TEXT UNIQUE NOT NULL,
+                nickname TEXT UNIQUE NOT NULL COLLATE NOCASE,
+                email TEXT UNIQUE NOT NULL COLLATE NOCASE,
                 password text,
                 av_path,
                 FOREIGN KEY (av_path) REFERENCES image(path)
@@ -41,8 +41,8 @@ function dbrun() {
             db.run(
                 `CREATE TABLE IF NOT EXISTS image(
                 pid INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                author TEXT,
+                name TEXT COLLATE NOCASE,
+                author TEXT COLLATE NOCASE,
                 path TEXT UNIQUE,
                 CONSTRAINT AU_Image UNIQUE (author,name)
                 FOREIGN KEY (author) REFERENCES user(nickname))`,
