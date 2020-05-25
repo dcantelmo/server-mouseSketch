@@ -118,16 +118,22 @@ app.post('/draw', verifyToken, function (req, res) {
             let title = req.body.title;
             console.log(req.body.title);
             if (!title) title = 'unnamed';
-            insertImage(title, decoded.user.nickname, req.files.file[0])
-                .then((response) => {
-                    console.log(response);
-                    if (response === 'SAVED') res.json('Salvato correttamente');
-                    else res.json('Immagine sovrascritta correttamente');
-                })
-                .catch((err) => {
-                    console.log(err);
-                    res.status(400).json(err);
-                });
+            if (title.length < 30) {
+                insertImage(title, decoded.user.nickname, req.files.file[0])
+                    .then((response) => {
+                        console.log(response);
+                        if (response === 'SAVED')
+                            res.json('Salvato correttamente');
+                        else res.json('Immagine sovrascritta correttamente');
+                    })
+                    .catch((err) => {
+                        console.log(err);
+                        res.status(400).json(err);
+                    });
+            }
+            else {
+                res.status(400).json('Nome troppo lungo');
+            }
         }
     });
 });
