@@ -265,7 +265,7 @@ app.get('/profile/:user', function (req, res) {
     } else res.status(400).json({ err: 'Bad request' });
 });
 
-app.listen(3000, function () {
+app.listen(process.env.PORT || 3000, function () {
     console.log('Server API _ Mouse-Sketch avviato, porta 3000!');
 });
 
