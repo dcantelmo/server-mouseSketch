@@ -75,7 +75,7 @@ app.post('/register', function (req, res) {
                     error = 'Email già registrata!';
                 else if (err.toString().search('nickname') != -1)
                     errors = 'Nome già registrato!';
-                res.status(401).json(error);
+                res.status(400).json(error);
             });
     } else res.status(400); //TODO errore
 });
@@ -99,7 +99,7 @@ app.post('/login', function (req, res) {
                             nickname: row.nickname,
                         });
                     } else
-                        res.status(401).json({
+                        res.status(400).json({
                             err: 'Email o Password errati!',
                         });
                 }
@@ -114,26 +114,44 @@ app.post('/draw', verifyToken, function (req, res) {
         if (err) {
             res.status(401).json({ err });
         } else {
-            console.log('Richiesta save ricevuta');
-            let title = req.body.title;
-            console.log(req.body.title);
-            if (!title) title = 'unnamed';
-            if (title.length < 30) {
-                insertImage(title, decoded.user.nickname, req.files.file[0])
-                    .then((response) => {
-                        console.log(response);
-                        if (response === 'SAVED')
-                            res.json('Salvato correttamente');
-                        else res.json('Immagine sovrascritta correttamente');
-                    })
-                    .catch((err) => {
-                        console.log(err);
-                        res.status(400).json(err);
-                    });
-            }
-            else {
-                res.status(400).json('Nome troppo lungo');
-            }
+            db.get(
+                `SELECT * FROM user WHERE nickname = ?`,
+                [decoded.user.nickname],
+                (err, row) => {
+                    if (err) {
+                        res.status(401).json(err);
+                    } else if (!row) {
+                        res.status(401).json('Utente non presente nel DB');
+                    } else {
+                        console.log('Richiesta save ricevuta');
+                        let title = req.body.title;
+                        console.log(req.body.title);
+                        if (!title) title = 'unnamed';
+                        if (title.length < 30) {
+                            insertImage(
+                                title,
+                                decoded.user.nickname,
+                                req.files.file[0]
+                            )
+                                .then((response) => {
+                                    console.log(response);
+                                    if (response === 'SAVED')
+                                        res.json('Salvato correttamente');
+                                    else
+                                        res.json(
+                                            'Immagine sovrascritta correttamente'
+                                        );
+                                })
+                                .catch((err) => {
+                                    console.log(err);
+                                    res.status(400).json(err);
+                                });
+                        } else {
+                            res.status(400).json('Nome troppo lungo');
+                        }
+                    }
+                }
+            );
         }
     });
 });
